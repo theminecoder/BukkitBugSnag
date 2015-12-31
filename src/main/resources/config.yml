@@ -1,0 +1,9 @@
+api-key: 'your-api-key-goes-here'
+release-stage: 'production'
+enterprise:
+  enabled: false
+  endpoint-url: ''
+send-info:
+  bukkit-info: true
+  world-info: true
+  threads: true

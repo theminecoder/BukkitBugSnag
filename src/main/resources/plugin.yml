@@ -1,0 +1,5 @@
+name: BukkitBugSnag
+version: 1.0
+author: theminecoder
+main: me.theminecoder.bug.BukkitBugSnag
+load: STARTUP
