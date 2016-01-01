@@ -4,17 +4,21 @@ import com.bugsnag.BeforeNotify;
 import com.bugsnag.Client;
 import com.bugsnag.Error;
 import com.bugsnag.MetaData;
+import me.theminecoder.bug.proxy.LoggedCommandMap;
 import me.theminecoder.bug.proxy.LoggedPluginManager;
 import me.theminecoder.bug.proxy.LoggedScheduler;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
+import org.bukkit.command.Command;
+import org.bukkit.command.PluginCommand;
+import org.bukkit.command.SimpleCommandMap;
 import org.bukkit.event.Event;
+import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.scheduler.BukkitTask;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -30,6 +34,7 @@ public class BukkitBugSnag extends JavaPlugin {
     private static final String WORLD_INFO_TAB = "World Info";
     private static final String EVENT_INFO_TAB = "Event Info";
     private static final String TASK_INFO_TAB = "Task Info";
+    private static final String COMMAND_INFO_TAB = "Command Info";
 
     private static Client bugsnagClient;
 
@@ -45,7 +50,7 @@ public class BukkitBugSnag extends JavaPlugin {
 
         this.isSpigot = isSpigotServer();
 
-        if(this.getConfig().getString("api-key").equalsIgnoreCase("your-api-key-goes-here")) {
+        if (this.getConfig().getString("api-key").equalsIgnoreCase("your-api-key-goes-here")) {
             this.getLogger().severe("Please set the api key in the config then reboot the server!");
             return;
         }
@@ -101,28 +106,98 @@ public class BukkitBugSnag extends JavaPlugin {
         try {
             Field pluginManagerField = Bukkit.getServer().getClass().getDeclaredField("pluginManager");
             pluginManagerField.setAccessible(true);
+            if (Modifier.isFinal(pluginManagerField.getModifiers())) {
+                Field modifierField = Field.class.getDeclaredField("modifiers");
+                modifierField.setAccessible(true);
+                modifierField.set(pluginManagerField, pluginManagerField.getModifiers() & ~Modifier.FINAL);
+            }
             pluginManagerField.set(Bukkit.getServer(), new LoggedPluginManager(this) {
                 @Override
                 protected void customHandler(Event event, Throwable e) {
                     MetaData metaData = new MetaData();
-                    metaData.addToTab(EVENT_INFO_TAB, "Event", event.getEventName());
+                    metaData.addToTab(EVENT_INFO_TAB, "Event Name", event.getEventName());
+                    metaData.addToTab(EVENT_INFO_TAB, "Is Async", event.isAsynchronous());
+                    Map<String, Object> eventData = new HashMap<String, Object>();
+                    Class eventClass = event.getClass();
+                    do {
+                        if (eventClass != Event.class) { // Info already provided ^
+                            for (Field field : eventClass.getDeclaredFields()) {
+                                if (field.getType() == HandlerList.class) {
+                                    continue; // Unneeded Data
+                                }
+                                field.setAccessible(true);
+                                try {
+                                    eventData.put(field.getName(), field.get(event));
+                                } catch (IllegalAccessException ignored) {
+                                }
+                            }
+                        }
+                        eventClass = eventClass.getSuperclass();
+                    } while (eventClass != null);
+                    metaData.addToTab(EVENT_INFO_TAB, "Event Data", eventData);
                     bugsnagClient.notify(e.getCause(), "error", metaData);
                 }
             });
-            Field schedulerField = Bukkit.getServer().getClass().getDeclaredField("scheduler");
-            schedulerField.setAccessible(true);
-            schedulerField.set(Bukkit.getServer(), new LoggedScheduler(this) {
-                @Override
-                protected void customHandler(int taskID, Throwable e) {
-                    MetaData metaData = new MetaData();
-                    metaData.addToTab(TASK_INFO_TAB, "Task ID", taskID);
-                    bugsnagClient.notify(e.getCause(), "error", metaData);
-                }
-            });
-        } catch (ReflectiveOperationException e) {
-            this.getLogger().severe("Could not register proxy plugin manager & scheduler");
+        } catch (Throwable e) {
+            this.getLogger().severe("Could not register proxy plugin manager");
             e.printStackTrace();
         }
+
+        try {
+            Field commandMapField = Bukkit.getServer().getClass().getDeclaredField("commandMap");
+            commandMapField.setAccessible(true);
+            if (Modifier.isFinal(commandMapField.getModifiers())) {
+                Field modifierField = Field.class.getDeclaredField("modifiers");
+                modifierField.setAccessible(true);
+                modifierField.set(commandMapField, commandMapField.getModifiers() & ~Modifier.FINAL);
+            }
+            commandMapField.set(Bukkit.getServer(), new LoggedCommandMap((SimpleCommandMap) commandMapField.get(Bukkit.getServer())) {
+                @SuppressWarnings("unused")
+                private Map<String, Command> knownCommands; //Hack for original knownCommands reflection.
+
+                @Override
+                protected void setKnownCommands(Map<String, Command> knownCommands) {
+                    this.knownCommands = knownCommands;
+                }
+
+                @Override
+                protected void customHandler(Command command, String commandLine, Throwable e) {
+                    MetaData metaData = new MetaData();
+                    metaData.addToTab(COMMAND_INFO_TAB, "Command", command.getName());
+                    metaData.addToTab(COMMAND_INFO_TAB, "Full Command", commandLine);
+                    if (command instanceof PluginCommand) {
+                        PluginCommand pluginCommand = (PluginCommand) command;
+                        metaData.addToTab(COMMAND_INFO_TAB, "Owning Plugin", pluginCommand.getPlugin().getName());
+                    }
+                    bugsnagClient.notify(e.getCause(), "error", metaData);
+                }
+            });
+        } catch (Throwable e) {
+            this.getLogger().severe("Could not register proxy commandMap");
+            e.printStackTrace();
+        }
+
+        //TODO Somehow make a dynamic scheduler class to use as the proxy to the real scheduler.
+//        try {
+//            Field schedulerField = Bukkit.getServer().getClass().getDeclaredField("scheduler");
+//            schedulerField.setAccessible(true);
+//            if (Modifier.isFinal(schedulerField.getModifiers())) {
+//                Field modifierField = Field.class.getDeclaredField("modifiers");
+//                modifierField.setAccessible(true);
+//                modifierField.set(schedulerField, schedulerField.getModifiers() & ~Modifier.FINAL);
+//            }
+//            schedulerField.set(Bukkit.getServer(), new LoggedScheduler(this) {
+//                @Override
+//                protected void customHandler(int taskID, Throwable e) {
+//                    MetaData metaData = new MetaData();
+//                    metaData.addToTab(TASK_INFO_TAB, "Task ID", taskID);
+//                    bugsnagClient.notify(e.getCause(), "error", metaData);
+//                }
+//            });
+//        } catch (Throwable e) {
+//            this.getLogger().severe("Could not register proxy scheduler");
+//            e.printStackTrace();
+//        }
 
     }
 
