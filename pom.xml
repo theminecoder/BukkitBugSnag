@@ -6,7 +6,7 @@
 
     <groupId>me.theminecoder.bug</groupId>
     <artifactId>BukkitBugSnag</artifactId>
-    <version>1.1</version>
+    <version>1.1.1</version>
 
     <repositories>
         <repository>

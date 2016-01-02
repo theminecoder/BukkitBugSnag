@@ -10,6 +10,7 @@ import me.theminecoder.bug.proxy.LoggedScheduler;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.command.Command;
+import org.bukkit.command.CommandMap;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.command.SimpleCommandMap;
 import org.bukkit.event.Event;
@@ -104,46 +105,6 @@ public class BukkitBugSnag extends JavaPlugin {
         }
 
         try {
-            Field pluginManagerField = Bukkit.getServer().getClass().getDeclaredField("pluginManager");
-            pluginManagerField.setAccessible(true);
-            if (Modifier.isFinal(pluginManagerField.getModifiers())) {
-                Field modifierField = Field.class.getDeclaredField("modifiers");
-                modifierField.setAccessible(true);
-                modifierField.set(pluginManagerField, pluginManagerField.getModifiers() & ~Modifier.FINAL);
-            }
-            pluginManagerField.set(Bukkit.getServer(), new LoggedPluginManager(this) {
-                @Override
-                protected void customHandler(Event event, Throwable e) {
-                    MetaData metaData = new MetaData();
-                    metaData.addToTab(EVENT_INFO_TAB, "Event Name", event.getEventName());
-                    metaData.addToTab(EVENT_INFO_TAB, "Is Async", event.isAsynchronous());
-                    Map<String, Object> eventData = new HashMap<String, Object>();
-                    Class eventClass = event.getClass();
-                    do {
-                        if (eventClass != Event.class) { // Info already provided ^
-                            for (Field field : eventClass.getDeclaredFields()) {
-                                if (field.getType() == HandlerList.class) {
-                                    continue; // Unneeded Data
-                                }
-                                field.setAccessible(true);
-                                try {
-                                    eventData.put(field.getName(), field.get(event));
-                                } catch (IllegalAccessException ignored) {
-                                }
-                            }
-                        }
-                        eventClass = eventClass.getSuperclass();
-                    } while (eventClass != null);
-                    metaData.addToTab(EVENT_INFO_TAB, "Event Data", eventData);
-                    bugsnagClient.notify(e.getCause(), "error", metaData);
-                }
-            });
-        } catch (Throwable e) {
-            this.getLogger().severe("Could not register proxy plugin manager");
-            e.printStackTrace();
-        }
-
-        try {
             Field commandMapField = Bukkit.getServer().getClass().getDeclaredField("commandMap");
             commandMapField.setAccessible(true);
             if (Modifier.isFinal(commandMapField.getModifiers())) {
@@ -174,6 +135,47 @@ public class BukkitBugSnag extends JavaPlugin {
             });
         } catch (Throwable e) {
             this.getLogger().severe("Could not register proxy commandMap");
+            e.printStackTrace();
+        }
+
+        try {
+            Field pluginManagerField = Bukkit.getServer().getClass().getDeclaredField("pluginManager");
+            pluginManagerField.setAccessible(true);
+            if (Modifier.isFinal(pluginManagerField.getModifiers())) {
+                Field modifierField = Field.class.getDeclaredField("modifiers");
+                modifierField.setAccessible(true);
+                modifierField.set(pluginManagerField, pluginManagerField.getModifiers() & ~Modifier.FINAL);
+            }
+            pluginManagerField.set(Bukkit.getServer(), new LoggedPluginManager(this) {
+
+                @Override
+                protected void customHandler(Event event, Throwable e) {
+                    MetaData metaData = new MetaData();
+                    metaData.addToTab(EVENT_INFO_TAB, "Event Name", event.getEventName());
+                    metaData.addToTab(EVENT_INFO_TAB, "Is Async", event.isAsynchronous());
+                    Map<String, Object> eventData = new HashMap<String, Object>();
+                    Class eventClass = event.getClass();
+                    do {
+                        if (eventClass != Event.class) { // Info already provided ^
+                            for (Field field : eventClass.getDeclaredFields()) {
+                                if (field.getType() == HandlerList.class) {
+                                    continue; // Unneeded Data
+                                }
+                                field.setAccessible(true);
+                                try {
+                                    eventData.put(field.getName(), field.get(event));
+                                } catch (IllegalAccessException ignored) {
+                                }
+                            }
+                        }
+                        eventClass = eventClass.getSuperclass();
+                    } while (eventClass != null);
+                    metaData.addToTab(EVENT_INFO_TAB, "Event Data", eventData);
+                    bugsnagClient.notify(e.getCause(), "error", metaData);
+                }
+            });
+        } catch (Throwable e) {
+            this.getLogger().severe("Could not register proxy plugin manager");
             e.printStackTrace();
         }
 

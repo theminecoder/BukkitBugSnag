@@ -1,12 +1,16 @@
 package me.theminecoder.bug.proxy;
 
 import com.google.common.collect.Lists;
+import org.bukkit.Bukkit;
+import org.bukkit.command.CommandMap;
+import org.bukkit.command.SimpleCommandMap;
 import org.bukkit.event.*;
 import org.bukkit.permissions.Permissible;
 import org.bukkit.permissions.Permission;
 import org.bukkit.plugin.*;
 
 import java.io.File;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.Iterator;
@@ -18,6 +22,9 @@ import java.util.Set;
  */
 public abstract class LoggedPluginManager implements PluginManager {
 
+    @SuppressWarnings("FieldCanBeLocal")
+    private CommandMap commandMap;
+
     private PluginManager delegate;
 
     public LoggedPluginManager(Plugin owner) {
@@ -26,6 +33,13 @@ public abstract class LoggedPluginManager implements PluginManager {
 
     public LoggedPluginManager(PluginManager delegate) {
         this.delegate = delegate;
+        try {
+            Field commandMapField = Bukkit.getServer().getClass().getDeclaredField("commandMap");
+            commandMapField.setAccessible(true);
+            commandMap = (CommandMap) commandMapField.get(Bukkit.getServer());
+        } catch (ReflectiveOperationException ignored) {
+
+        }
     }
 
     /**
