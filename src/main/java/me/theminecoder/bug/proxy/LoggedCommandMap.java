@@ -27,6 +27,7 @@ public abstract class LoggedCommandMap extends SimpleCommandMap {
         super(Bukkit.getServer());
         doRegister = true;
         this.delegate = bukkitCommandMap;
+        //noinspection Since15
         try {
             Field knownCommandsField = bukkitCommandMap.getClass().getDeclaredField("knownCommands");
             knownCommandsField.setAccessible(true);
@@ -39,11 +40,12 @@ public abstract class LoggedCommandMap extends SimpleCommandMap {
     }
 
     protected abstract void setKnownCommands(Map<String, Command> knownCommands);
+
     protected abstract void customHandler(Command command, String commandString, Throwable e);
 
     @Override
     public void registerAll(String s, List<Command> list) {
-        if(doRegister) {
+        if (doRegister) {
             delegate.registerAll(s, list);
         }
     }
@@ -66,16 +68,25 @@ public abstract class LoggedCommandMap extends SimpleCommandMap {
         } else {
             String sentCommandLabel = args[0].toLowerCase();
             Command target = this.getCommand(sentCommandLabel);
+            boolean doTimings = false;
+            try {
+                target.getClass().getField("timings");
+                doTimings = true;
+            } catch (Throwable e) {
+            }
             if (target == null) {
                 return false;
             } else {
                 try {
-                    target.timings.startTiming();
+                    if (doTimings)
+                        target.timings.startTiming();
                     target.execute(sender, sentCommandLabel, Java15Compat.Arrays_copyOfRange(args, 1, args.length));
-                    target.timings.stopTiming();
+                    if (doTimings)
+                        target.timings.stopTiming();
                     return true;
                 } catch (Throwable var8) {
-                    target.timings.stopTiming();
+                    if (doTimings)
+                        target.timings.stopTiming();
                     customHandler(target, commandLine, new CommandException("Unhandled exception executing \'" + commandLine + "\' in " + target, var8));
                     return true;
                 }
@@ -85,7 +96,7 @@ public abstract class LoggedCommandMap extends SimpleCommandMap {
 
     @Override
     public void clearCommands() {
-        if(doRegister) {
+        if (doRegister) {
             delegate.clearCommands();
         }
     }

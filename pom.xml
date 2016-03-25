@@ -11,7 +11,7 @@
     <repositories>
         <repository>
             <id>theminecoder-spigot-public</id>
-            <url>http://repo.theminecoder.me/artifactory/spigot-public/</url>
+            <url>http://maventemp.theminecoder.me/</url>
         </repository>
     </repositories>
 
@@ -29,6 +29,12 @@
             <groupId>org.spigotmc</groupId>
             <artifactId>spigot-1.8.7</artifactId>
             <version>1.8.7</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.paperspigot</groupId>
+            <artifactId>paperspigot-1.9</artifactId>
+            <version>1.9</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>

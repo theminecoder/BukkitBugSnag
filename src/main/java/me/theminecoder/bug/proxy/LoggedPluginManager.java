@@ -24,6 +24,7 @@ public abstract class LoggedPluginManager implements PluginManager {
 
     @SuppressWarnings("FieldCanBeLocal")
     private CommandMap commandMap;
+    private Object timings;
 
     private PluginManager delegate;
 
@@ -33,6 +34,7 @@ public abstract class LoggedPluginManager implements PluginManager {
 
     public LoggedPluginManager(PluginManager delegate) {
         this.delegate = delegate;
+        //noinspection Since15
         try {
             Field commandMapField = Bukkit.getServer().getClass().getDeclaredField("commandMap");
             commandMapField.setAccessible(true);
