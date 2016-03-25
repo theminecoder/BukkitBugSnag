@@ -15,15 +15,15 @@ import org.bukkit.command.PluginCommand;
 import org.bukkit.command.SimpleCommandMap;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
+import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.permissions.Permissible;
+import org.bukkit.permissions.Permission;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * @author Jackson
@@ -147,6 +147,10 @@ public class BukkitBugSnag extends JavaPlugin {
                 modifierField.set(pluginManagerField, pluginManagerField.getModifiers() & ~Modifier.FINAL);
             }
             pluginManagerField.set(Bukkit.getServer(), new LoggedPluginManager(this) {
+                private final Map<String, Permission> permissions = new HashMap();
+                private final Map<Boolean, Set<Permission>> defaultPerms = new LinkedHashMap();
+                private final Map<String, Map<Permissible, Boolean>> permSubs = new HashMap();
+                private final Map<Boolean, Map<Permissible, Boolean>> defSubs = new HashMap();
 
                 @Override
                 protected void customHandler(Event event, Throwable e) {
@@ -163,8 +167,17 @@ public class BukkitBugSnag extends JavaPlugin {
                                 }
                                 field.setAccessible(true);
                                 try {
-                                    eventData.put(field.getName(), field.get(event));
+                                    Object value = field.get(event);
+                                    if (value instanceof EntityDamageEvent.DamageModifier) {
+                                        value = value.getClass().getCanonicalName() + "." + ((EntityDamageEvent.DamageModifier) value).name();
+                                    }
+                                    if (value instanceof Enum) {
+                                        value = value.getClass().getCanonicalName() + "." + ((Enum) value).name();
+                                    }
+                                    eventData.put(field.getName(), value);
                                 } catch (IllegalAccessException ignored) {
+                                } catch (Throwable internalE) {
+                                    eventData.put(field.getName(), "Error getting field data: "+internalE.getClass().getCanonicalName() + (internalE.getMessage() != null && internalE.getMessage().trim().length() > 0 ? ": " + internalE.getMessage() : ""));
                                 }
                             }
                         }
