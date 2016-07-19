@@ -29,7 +29,7 @@ public class PaperSpigotHandler implements ServerHandler {
             public void onServerException(ServerExceptionEvent event) {
                 MetaData metaData = new MetaData();
                 //TODO Expand out and get metadata
-                BukkitBugSnag.getBugsnagClient().notify(event.getException());
+                BukkitBugSnag.getBugsnagClient().notify(event.getException(), metaData);
             }
         }, plugin);
     }

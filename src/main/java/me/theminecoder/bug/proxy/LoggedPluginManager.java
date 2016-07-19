@@ -63,11 +63,8 @@ public abstract class LoggedPluginManager implements PluginManager {
             throw new IllegalPluginAccessException("Plugin attempted to register " + listener + " while not enabled");
 
         // Just in case Bukkit decides to validate the parameters in the future
-        EventExecutor nullExecutor = new EventExecutor() {
-            @Override
-            public void execute(Listener arg0, Event arg1) throws EventException {
-                throw new IllegalStateException("This method should never be called!");
-            }
+        EventExecutor nullExecutor = (arg0, arg1) -> {
+            throw new IllegalStateException("This method should never be called!");
         };
 
         for (Entry<Class<? extends Event>, Set<RegisteredListener>> entry : plugin.getPluginLoader().createRegisteredListeners(listener, plugin).entrySet()) {
@@ -99,17 +96,14 @@ public abstract class LoggedPluginManager implements PluginManager {
     }
 
     private EventExecutor getWrappedExecutor(final EventExecutor executor) {
-        return new EventExecutor() {
-            @Override
-            public void execute(Listener listener, Event event) throws EventException {
-                // Just like above
-                try {
-                    executor.execute(listener, event);
-                } catch (AuthorNagException e) {
-                    throw e;
-                } catch (Throwable e) {
-                    customHandler(event, e);
-                }
+        return (listener, event) -> {
+            // Just like above
+            try {
+                executor.execute(listener, event);
+            } catch (AuthorNagException e) {
+                throw e;
+            } catch (Throwable e) {
+                customHandler(event, e);
             }
         };
     }

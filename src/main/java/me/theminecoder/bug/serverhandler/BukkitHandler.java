@@ -6,6 +6,7 @@ import me.theminecoder.bug.proxy.LoggedCommandMap;
 import me.theminecoder.bug.proxy.LoggedPluginManager;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
+import org.bukkit.command.CommandMap;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.command.SimpleCommandMap;
 import org.bukkit.event.Event;
@@ -84,13 +85,20 @@ public class BukkitHandler implements ServerHandler {
                 private final Map<Boolean, Set<Permission>> defaultPerms = new LinkedHashMap();
                 private final Map<String, Map<Permissible, Boolean>> permSubs = new HashMap();
                 private final Map<Boolean, Map<Permissible, Boolean>> defSubs = new HashMap();
+                private final CommandMap commandMap;
+
+                {
+                    Field commandMapField = Bukkit.getServer().getClass().getDeclaredField("commandMap");
+                    commandMapField.setAccessible(true);
+                    commandMap = (CommandMap) commandMapField.get(Bukkit.getServer());
+                }
 
                 @Override
                 protected void customHandler(Event event, Throwable e) {
                     MetaData metaData = new MetaData();
                     metaData.addToTab(EVENT_INFO_TAB, "Event Name", event.getEventName());
                     metaData.addToTab(EVENT_INFO_TAB, "Is Async", event.isAsynchronous());
-                    Map<String, Object> eventData = new HashMap<String, Object>();
+                    Map<String, Object> eventData = new HashMap<>();
                     Class eventClass = event.getClass();
                     do {
                         if (eventClass != Event.class) { // Info already provided ^
