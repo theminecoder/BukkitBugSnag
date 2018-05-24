@@ -42,7 +42,6 @@ public class PaperSpigotHandler implements ServerHandler {
         plugin.getServer().getPluginManager().registerEvents(new Listener() {
             @EventHandler
             public void onServerException(ServerExceptionEvent event) {
-                System.out.println(event);
                 Throwable e = event.getException();
                 if (e.getCause() != null) {
                     e = e.getCause();
