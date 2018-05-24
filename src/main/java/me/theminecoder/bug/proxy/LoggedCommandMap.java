@@ -1,10 +1,13 @@
 package me.theminecoder.bug.proxy;
 
 import org.bukkit.Bukkit;
-import org.bukkit.command.*;
-import org.bukkit.util.Java15Compat;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandException;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.SimpleCommandMap;
 
 import java.lang.reflect.Field;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -80,7 +83,7 @@ public abstract class LoggedCommandMap extends SimpleCommandMap {
                 try {
                     if (doTimings)
                         target.timings.startTiming();
-                    target.execute(sender, sentCommandLabel, Java15Compat.Arrays_copyOfRange(args, 1, args.length));
+                    target.execute(sender, sentCommandLabel, Arrays.copyOfRange(args, 1, args.length));
                     if (doTimings)
                         target.timings.stopTiming();
                     return true;

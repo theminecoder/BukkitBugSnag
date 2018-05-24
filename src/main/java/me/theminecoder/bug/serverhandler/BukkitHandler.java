@@ -1,6 +1,6 @@
 package me.theminecoder.bug.serverhandler;
 
-import com.bugsnag.MetaData;
+import com.bugsnag.Severity;
 import me.theminecoder.bug.BukkitBugSnag;
 import me.theminecoder.bug.proxy.LoggedCommandMap;
 import me.theminecoder.bug.proxy.LoggedPluginManager;
@@ -56,14 +56,14 @@ public class BukkitHandler implements ServerHandler {
 
                 @Override
                 protected void customHandler(Command command, String commandLine, Throwable e) {
-                    MetaData metaData = new MetaData();
-                    metaData.addToTab(COMMAND_INFO_TAB, "Command", command.getName());
-                    metaData.addToTab(COMMAND_INFO_TAB, "Full Command", commandLine);
-                    if (command instanceof PluginCommand) {
-                        PluginCommand pluginCommand = (PluginCommand) command;
-                        metaData.addToTab(COMMAND_INFO_TAB, "Owning Plugin", pluginCommand.getPlugin().getName());
-                    }
-                    BukkitBugSnag.getBugsnagClient().notify(e.getCause(), "error", metaData);
+                    BukkitBugSnag.getBugsnagClient().notify(e.getCause(), Severity.ERROR, error -> {
+                        error.addToTab(COMMAND_INFO_TAB, "Command", command.getName());
+                        error.addToTab(COMMAND_INFO_TAB, "Full Command", commandLine);
+                        if (command instanceof PluginCommand) {
+                            PluginCommand pluginCommand = (PluginCommand) command;
+                            error.addToTab(COMMAND_INFO_TAB, "Owning Plugin", pluginCommand.getPlugin().getName());
+                        }
+                    });
                 }
             });
         } catch (Throwable e) {
@@ -95,37 +95,37 @@ public class BukkitHandler implements ServerHandler {
 
                 @Override
                 protected void customHandler(Event event, Throwable e) {
-                    MetaData metaData = new MetaData();
-                    metaData.addToTab(EVENT_INFO_TAB, "Event Name", event.getEventName());
-                    metaData.addToTab(EVENT_INFO_TAB, "Is Async", event.isAsynchronous());
-                    Map<String, Object> eventData = new HashMap<>();
-                    Class eventClass = event.getClass();
-                    do {
-                        if (eventClass != Event.class) { // Info already provided ^
-                            for (Field field : eventClass.getDeclaredFields()) {
-                                if (field.getType() == HandlerList.class) {
-                                    continue; // Unneeded Data
-                                }
-                                field.setAccessible(true);
-                                try {
-                                    Object value = field.get(event);
-                                    if (value instanceof EntityDamageEvent.DamageModifier) {
-                                        value = value.getClass().getCanonicalName() + "." + ((EntityDamageEvent.DamageModifier) value).name();
+                    BukkitBugSnag.getBugsnagClient().notify(e.getCause(), Severity.ERROR, error -> {
+                        error.addToTab(EVENT_INFO_TAB, "Event Name", event.getEventName());
+                        error.addToTab(EVENT_INFO_TAB, "Is Async", !Bukkit.getServer().isPrimaryThread());
+                        Map<String, Object> eventData = new HashMap<>();
+                        Class eventClass = event.getClass();
+                        do {
+                            if (eventClass != Event.class) { // Info already provided ^
+                                for (Field field : eventClass.getDeclaredFields()) {
+                                    if (field.getType() == HandlerList.class) {
+                                        continue; // Unneeded Data
                                     }
-                                    if (value instanceof Enum) {
-                                        value = value.getClass().getCanonicalName() + "." + ((Enum) value).name();
+                                    field.setAccessible(true);
+                                    try {
+                                        Object value = field.get(event);
+                                        if (value instanceof EntityDamageEvent.DamageModifier) {
+                                            value = value.getClass().getCanonicalName() + "." + ((EntityDamageEvent.DamageModifier) value).name();
+                                        }
+                                        if (value instanceof Enum) {
+                                            value = value.getClass().getCanonicalName() + "." + ((Enum) value).name();
+                                        }
+                                        eventData.put(field.getName(), value);
+                                    } catch (IllegalAccessException ignored) {
+                                    } catch (Throwable internalE) {
+                                        eventData.put(field.getName(), "Error getting field data: "+internalE.getClass().getCanonicalName() + (internalE.getMessage() != null && internalE.getMessage().trim().length() > 0 ? ": " + internalE.getMessage() : ""));
                                     }
-                                    eventData.put(field.getName(), value);
-                                } catch (IllegalAccessException ignored) {
-                                } catch (Throwable internalE) {
-                                    eventData.put(field.getName(), "Error getting field data: "+internalE.getClass().getCanonicalName() + (internalE.getMessage() != null && internalE.getMessage().trim().length() > 0 ? ": " + internalE.getMessage() : ""));
                                 }
                             }
-                        }
-                        eventClass = eventClass.getSuperclass();
-                    } while (eventClass != null);
-                    metaData.addToTab(EVENT_INFO_TAB, "Event Data", eventData);
-                    BukkitBugSnag.getBugsnagClient().notify(e.getCause(), "error", metaData);
+                            eventClass = eventClass.getSuperclass();
+                        } while (eventClass != null);
+                        error.addToTab(EVENT_INFO_TAB, "Event Data", eventData);
+                    });
                 }
             });
         } catch (Throwable e) {

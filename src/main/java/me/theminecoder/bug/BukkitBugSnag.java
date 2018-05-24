@@ -1,6 +1,6 @@
 package me.theminecoder.bug;
 
-import com.bugsnag.Client;
+import com.bugsnag.Bugsnag;
 import me.theminecoder.bug.command.TestCommand;
 import me.theminecoder.bug.serverhandler.BukkitHandler;
 import me.theminecoder.bug.serverhandler.PaperSpigotHandler;
@@ -27,11 +27,11 @@ public class BukkitBugSnag extends JavaPlugin {
     public static final String TASK_INFO_TAB = "Task Info";
     public static final String COMMAND_INFO_TAB = "Command Info";
 
-    private static Client bugsnagClient;
+    private static Bugsnag bugsnagClient;
 
     private boolean isSpigot;
 
-    public static Client getBugsnagClient() {
+    public static Bugsnag getBugsnagClient() {
         return bugsnagClient;
     }
 
@@ -46,7 +46,7 @@ public class BukkitBugSnag extends JavaPlugin {
             return;
         }
 
-        bugsnagClient = new Client(this.getConfig().getString("api-key"));
+        bugsnagClient = new Bugsnag(this.getConfig().getString("api-key"));
         bugsnagClient.setReleaseStage(this.getConfig().getString("release-stage"));
         if (this.getConfig().getBoolean("enterprise.enabled")) {
             bugsnagClient.setEndpoint(this.getConfig().getString("enterprise.endpoint-url"));
@@ -54,26 +54,27 @@ public class BukkitBugSnag extends JavaPlugin {
         bugsnagClient.setSendThreads(this.getConfig().getBoolean("send-info.threads"));
 
         if (this.getConfig().getBoolean("send-info.bukkit-info")) {
-            bugsnagClient.addBeforeNotify(error -> {
+            bugsnagClient.addCallback(error -> {
                 error.addToTab(BUKKIT_INFO_TAB, "Online Players", Bukkit.getOnlinePlayers().size());
                 List<String> pluginNames = new ArrayList<String>();
                 for (Plugin plugin : Bukkit.getPluginManager().getPlugins()) {
                     pluginNames.add(plugin.getName() + " v" + plugin.getDescription().getVersion());
                 }
                 error.addToTab(BUKKIT_INFO_TAB, "Loaded Plugins", pluginNames);
-                return true;
+
+                error.addToTab(BUKKIT_INFO_TAB, "Version", Bukkit.getVersion());
+                error.addToTab(BUKKIT_INFO_TAB, "Is Spigot", this.isSpigot);
+                if (this.isSpigot) {
+                    error.addToTab(BUKKIT_INFO_TAB, "Spigot: Bungeecord Enabled", Bukkit.spigot().getConfig().getBoolean("settings.bungeecord"));
+                    error.addToTab(BUKKIT_INFO_TAB, "Spigot: Late Bind Enabled", Bukkit.spigot().getConfig().getBoolean("settings.late-bind"));
+                    error.addToTab(BUKKIT_INFO_TAB, "Spigot: Netty Threads", Bukkit.spigot().getConfig().getInt("settings.netty-threads"));
+                }
             });
-            bugsnagClient.addToTab(BUKKIT_INFO_TAB, "Version", Bukkit.getVersion());
-            bugsnagClient.addToTab(BUKKIT_INFO_TAB, "Is Spigot", this.isSpigot);
-            if (this.isSpigot) {
-                bugsnagClient.addToTab(BUKKIT_INFO_TAB, "Spigot: Bungeecord Enabled", Bukkit.spigot().getConfig().getBoolean("settings.bungeecord"));
-                bugsnagClient.addToTab(BUKKIT_INFO_TAB, "Spigot: Late Bind Enabled", Bukkit.spigot().getConfig().getBoolean("settings.late-bind"));
-                bugsnagClient.addToTab(BUKKIT_INFO_TAB, "Spigot: Netty Threads", Bukkit.spigot().getConfig().getInt("settings.netty-threads"));
-            }
+
         }
 
         if (this.getConfig().getBoolean("send-info.world-info")) {
-            bugsnagClient.addBeforeNotify(error -> {
+            bugsnagClient.addCallback(error -> {
                 error.addToTab(WORLD_INFO_TAB, "Worlds Loaded", Bukkit.getWorlds().size());
                 Map<String, Integer> entitiesLoaded = new HashMap<String, Integer>();
                 for (World world : Bukkit.getWorlds()) {
@@ -85,7 +86,6 @@ public class BukkitBugSnag extends JavaPlugin {
                     chunksLoaded.put(world.getName(), world.getLoadedChunks().length);
                 }
                 error.addToTab(WORLD_INFO_TAB, "Loaded Chunks", chunksLoaded);
-                return true;
             });
         }
 
